@@ -1,0 +1,1 @@
+export const ORDER_QUERY_TOKEN_LENGTH = 32;

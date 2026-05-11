@@ -1,0 +1,22 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "edge-key1",
+	"compatibility_date": "2026-03-12",
+	"main": "virtual:photon:cloudflare:server-entry",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 0.1
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "edgekey-db",
+			"migrations_dir": "prisma/migrations","database_id": "5f156ba8-b42d-4a23-8024-0932b21eb8bb",
+			// "database_id": "24390dbc-b9c6-4ae6-8c7f-507fb2eb36f2", // 执行 wrangler d1 命令必须，但是与cf一键部署冲突所以注释
+		}
+	],
+	"triggers": {
+		"crons": ["*/5 * * * *"]
+	}
+}

@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+/* 1. 自定义亮色模式（默认主题） */
+@plugin "daisyui/theme" {
+  name: "light";
+  default: true;
+  --color-primary: oklch(45% 0.25 270);
+}
+
+/* 2. 自定义暗色模式（跟随系统暗黑） */
+@plugin "daisyui/theme" {
+  name: "dark";
+  prefersdark: true;
+  --color-primary: oklch(65% 0.2 270);
+}
+
+@layer base {
+  h1 {
+    @apply mb-4 text-4xl font-bold tracking-tight text-base-content;
+  }
+  ul {
+    @apply list-disc pl-6;
+  }
+  ol {
+    @apply list-decimal pl-6;
+  }
+  p {
+    @apply mb-2 mt-2;
+  }
+  a {
+    @apply text-primary hover:text-primary/80 transition-colors;
+  }
+}

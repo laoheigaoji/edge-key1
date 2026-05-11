@@ -1,0 +1,360 @@
+generator client_cf {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  runtime  = "cloudflare"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum AdminStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum CategoryStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
+enum ProductDeliveryType {
+  CARD_AUTO
+  MANUAL
+}
+
+enum ProductStockMode {
+  FINITE
+  UNLIMITED
+}
+
+enum CardStatus {
+  UNUSED
+  LOCKED
+  SOLD
+  DISABLED
+}
+
+enum ContactType {
+  EMAIL
+  QQ
+  TELEGRAM
+  OTHER
+}
+
+
+
+enum EmailChannel {
+  API
+  SMTP
+  CLOUDFLARE
+}
+
+enum EmailApiProvider {
+  BREVO
+  MAILJET
+}
+
+enum EmailScene {
+  TEST
+  ORDER_PAID
+  DELIVERY_SUCCESS
+  DELIVERY_FAILED
+}
+
+enum EmailSendStatus {
+  SUCCESS
+  FAILED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  DELIVERED
+  CLOSED
+  FAILED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  FAILED
+}
+
+enum DeliveryStatus {
+  NOT_DELIVERED
+  DELIVERED
+  FAILED
+}
+
+enum DeliveryRecordType {
+  CARD
+  MANUAL
+}
+
+enum DeliveryRecordStatus {
+  SUCCESS
+  FAILED
+}
+
+enum PaymentVerifyStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+model Admin {
+  id            Int                 @id @default(autoincrement())
+  username      String              @unique
+  passwordHash  String
+  nickname      String?
+  email         String?
+  status        AdminStatus         @default(ACTIVE)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  operationLogs AdminOperationLog[]
+}
+
+model SiteSetting {
+  id             Int      @id @default(1)
+  siteName       String
+  siteUrl        String?
+  siteSubtitle   String?
+  logoIcon       String?
+  logo           String?
+  notice         String?
+  supportContact String?
+  footerText     String?
+  orderNotice    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Category {
+  id          Int            @id @default(autoincrement())
+  name        String
+  slug        String         @unique
+  description String?
+  sort        Int            @default(0)
+  status      CategoryStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  products    Product[]
+}
+
+model Product {
+  id                Int                 @id @default(autoincrement())
+  categoryId        Int?
+  name              String
+  slug              String              @unique
+  subtitle          String?
+  description       String?
+  coverImage        String?
+  price             Int
+  status            ProductStatus       @default(DRAFT)
+  deliveryType      ProductDeliveryType @default(CARD_AUTO)
+  stockMode         ProductStockMode    @default(FINITE)
+  minBuy            Int                 @default(1)
+  maxBuy            Int                 @default(1)
+  sort              Int                 @default(0)
+  isVisibleStock    Boolean             @default(true)
+  isContactRequired Boolean             @default(true)
+  purchaseNote      String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  category          Category?           @relation(fields: [categoryId], references: [id])
+  cards             Card[]
+  orders            Order[]
+
+  @@index([categoryId])
+  @@index([status, sort])
+}
+
+model Card {
+  id        Int        @id @default(autoincrement())
+  productId Int
+  content   String
+  status    CardStatus @default(UNUSED)
+  batchNo   String?
+  orderId   Int?
+  soldAt    DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  product   Product    @relation(fields: [productId], references: [id])
+  order     Order?     @relation(fields: [orderId], references: [id])
+
+  @@index([productId, status])
+  @@index([orderId])
+}
+
+model Order {
+  id                  Int             @id @default(autoincrement())
+  orderNo             String          @unique
+  queryToken          String
+  productId           Int
+  productNameSnapshot String
+  unitPrice           Int
+  quantity            Int
+  amount              Int
+  contactType         ContactType     @default(EMAIL)
+  contactValue        String?
+  buyerNote           String?
+  paymentProvider     String
+  paymentChannel      String?
+  paymentOrderNo      String?
+  status              OrderStatus     @default(PENDING)
+  paymentStatus       PaymentStatus   @default(UNPAID)
+  deliveryStatus      DeliveryStatus  @default(NOT_DELIVERED)
+  paidAt              DateTime?
+  deliveredAt         DateTime?
+  closedAt            DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  product             Product         @relation(fields: [productId], references: [id])
+  cards               Card[]
+  deliveries          OrderDelivery[]
+  paymentLogs         PaymentLog[]
+  emailLogs           EmailLog[]
+
+  @@index([productId])
+  @@index([status, createdAt])
+  @@index([paymentStatus, createdAt])
+  @@index([deliveryStatus, createdAt])
+}
+
+model OrderDelivery {
+  id              Int                  @id @default(autoincrement())
+  orderId         Int
+  deliveryType    DeliveryRecordType   @default(CARD)
+  contentSnapshot String
+  status          DeliveryRecordStatus @default(SUCCESS)
+  createdAt       DateTime             @default(now())
+  order           Order                @relation(fields: [orderId], references: [id])
+
+  @@index([orderId, createdAt])
+}
+
+model PaymentConfig {
+  id         Int             @id @default(autoincrement())
+  provider   String @unique
+  name       String
+  isEnabled  Boolean         @default(false)
+  configJson String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+model PaymentLog {
+  id             Int                 @id @default(autoincrement())
+  orderId        Int?
+  provider       String
+  orderNo        String?
+  paymentOrderNo String?
+  eventType      String
+  rawPayload     String
+  verifyStatus   PaymentVerifyStatus @default(PENDING)
+  message        String?
+  createdAt      DateTime            @default(now())
+  order          Order?              @relation(fields: [orderId], references: [id])
+
+  @@index([provider, createdAt])
+  @@index([orderNo])
+  @@index([orderId])
+}
+
+model EmailConfig {
+  id         Int          @id @default(autoincrement())
+  provider   EmailChannel
+  name       String
+  isEnabled  Boolean      @default(false)
+  configJson String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([provider])
+}
+
+model EmailTemplate {
+  id          Int        @id @default(autoincrement())
+  scene       EmailScene @unique
+  name        String
+  subject     String
+  content     String
+  isEnabled   Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model EmailLog {
+  id          Int             @id @default(autoincrement())
+  orderId     Int?
+  provider    EmailChannel
+  apiProvider EmailApiProvider?
+  scene       EmailScene
+  status      EmailSendStatus @default(SUCCESS)
+  toEmail     String
+  subject     String
+  messageId   String?
+  error       String?
+  triggeredBy String?
+  createdAt   DateTime        @default(now())
+  order       Order?          @relation(fields: [orderId], references: [id])
+
+  @@index([provider, createdAt])
+  @@index([scene, createdAt])
+  @@index([status, createdAt])
+  @@index([orderId])
+}
+
+model AdminOperationLog {
+  id         Int      @id @default(autoincrement())
+  adminId    Int
+  action     String
+  targetType String
+  targetId   String?
+  detail     String?
+  createdAt  DateTime @default(now())
+  admin      Admin    @relation(fields: [adminId], references: [id])
+
+  @@index([adminId, createdAt])
+}
+
+model S3Config {
+  id             Int      @id @default(autoincrement())
+  endpoint       String
+  accessKeyId    String
+  secretAccessKey String
+  bucketName     String
+  region         String   @default("auto")
+  publicDomain   String?
+  pathPrefix     String?
+  cacheControl   String   @default("public, max-age=31536000, immutable")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Media {
+  id           Int      @id @default(autoincrement())
+  originalName String
+  storedName   String   @unique
+  mimeType     String
+  fileSize     Int
+  fileKey      String   @unique
+  url          String
+  thumbnailUrl String?
+  path         String?
+  metadata     String?
+  uploadedBy   Int
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([mimeType])
+  @@index([uploadedAt])
+  @@index([path])
+}
